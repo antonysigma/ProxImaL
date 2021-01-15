@@ -28,25 +28,6 @@ class conv(LinOp):
             if len(arg.shape) == 3 and len(self.kernel.shape) == 2:
                 self.kernel = np.stack((self.kernel,) * arg.shape[2], axis=-1)
 
-            # Halide kernel
-            if self.implementation == Impl['halide'] and \
-               (len(arg.shape) == 2 or (len(arg.shape) == 3 and arg.dims == 2)):
-                self.kernel = np.asfortranarray(self.kernel.astype(np.float32))
-                # Halide FFT (pack into diag)
-                # TODO: FIX IMREAL LATER
-                hsize = arg.shape if len(arg.shape) == 3 else arg.shape + (1,)
-                output_fft_tmp = np.zeros((int((hsize[0] + 1) / 2) + 1, hsize[1], hsize[2]),
-                                          dtype=np.complex64, order='F')
-
-                Halide('fft2_r2c', target_shape=hsize[:2]).fft2_r2c(self.kernel, int(self.kernel.shape[1] / 2),
-                                                int(self.kernel.shape[0] / 2), output_fft_tmp)
-                self.forward_kernel[:] = 0.
-
-                if len(arg.shape) == 2:
-                    self.forward_kernel[0:int((hsize[0] + 1) / 2 + 1), ...] = output_fft_tmp[..., 0]
-                else:
-                    self.forward_kernel[0:int((hsize[0] + 1) / 2 + 1), ...] = output_fft_tmp
-
             self.tmpout = np.zeros(arg.shape, dtype=np.float32, order='F')
             self.initialized = True
 
