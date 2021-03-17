@@ -59,11 +59,11 @@ class TestCudaCompGraphs(BaseTest):
                                  gpuarray.to_gpu(y1s.astype(np.float32))).get()
             #print(y1s)
             #print(y1a)
-            self.assertTrue(np.amax(np.abs(y1a - y1s)) < eps)
+            self.assertItemsAlmostEqual(y1a, y1s, eps=eps)
 
             x2a = G.adjoint_cuda(gpuarray.to_gpu(y2.astype(np.float32)),
                                  gpuarray.to_gpu(x2s.astype(np.float32))).get()
-            self.assertTrue(np.amax(np.abs(x2a - x2s)) < eps)
+            self.assertItemsAlmostEqual(x2a, x2s, eps=eps)
 
         # test with random data that the forward/adjoint operators are consistent
         maxerr = 0.0
@@ -85,7 +85,8 @@ class TestCudaCompGraphs(BaseTest):
                                 gpuarray.to_gpu(x2),
                                 printt=verbose).get()
 
-            self.assertTrue(not np.all(y1 == 0) and not np.all(x2 == 0))
+            assert not np.all(y1 == 0)
+            assert not np.all(x2 == 0)
 
             y1o = G.forward(x1, y1.copy())
             x2o = G.adjoint(y2, x2.copy())
@@ -117,7 +118,7 @@ class TestCudaCompGraphs(BaseTest):
                       (tidx, s, err, erro))
                 print("max(abs(y1-y1o)): %f" % (np.amax(np.abs(y1 - y1o))))
                 print("max(abs(x2-x2o)): %f" % (np.amax(np.abs(x2 - x2o))))
-            self.assertTrue(err <= eps)
+            self.assertAlmostEqual(err, 0, eps=eps)
         if verbose:
             print("%s passed %d tests. Max adjoint test error: %f" %
                   (s, ntests, maxerr))
@@ -389,7 +390,7 @@ class TestCudaCompGraphs(BaseTest):
         t_gpu = t2_gpu - t1_gpu
         logging.info("Forward timing: cpu=%.2f ms gpu=%.2f ms factor=%.3f" %
                      (t_cpu, t_gpu, t_gpu / t_cpu))
-        self.assertTrue(t_gpu < t_cpu)
+        assert t_gpu < t_cpu
 
         t1_cpu = time.time()
         for i in range(10):
@@ -405,6 +406,6 @@ class TestCudaCompGraphs(BaseTest):
         t_gpu = t2_gpu - t1_gpu
         logging.info("Adjoint timing: cpu=%.2f ms gpu=%.2f ms factor=%.3f" %
                      (t_cpu, t_gpu, t_gpu / t_cpu))
-        self.assertTrue(t_gpu < t_cpu)
+        assert t_gpu < t_cpu
 
         #print( G.start.adjoint_cuda(G, 0, "i", None)[0] )

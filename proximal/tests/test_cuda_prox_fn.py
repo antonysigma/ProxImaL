@@ -34,7 +34,7 @@ class TestCudaProxFn(BaseTest):
         if not np.all(np.abs(xhat1 - xhat2) < 1e-4):
             logging.error(f.cuda_code)
             logging.error("failed: %f" % np.amax(np.abs(xhat1 - xhat2)))
-        self.assertTrue(np.all(np.abs(xhat1 - xhat2) < 1e-4))
+        self.assertItemsAlmostEqual(xhat1, xhat2, eps=1e-4)
 
         eps = 1e-5
         maxeps = 0
@@ -48,7 +48,7 @@ class TestCudaProxFn(BaseTest):
             if not err < eps:
                 logging.error(f.cuda_code)
                 logging.error("failed: %f" % np.amax(np.abs(xhat1 - xhat2)))
-            self.assertTrue(err < eps)
+            self.assertAlmostEqual(err, 0, eps=eps)
             maxeps = max(err, maxeps)
 
         for i in range(50):
@@ -73,7 +73,7 @@ class TestCudaProxFn(BaseTest):
             if not err < eps:
                 logging.error(f.cuda_code)
                 logging.error("failed: %f" % np.amax(np.abs(xhat1 - xhat2)))
-            self.assertTrue(err < eps)
+            self.assertAlmostEqual(err, 0, eps=eps)
             maxeps = max(err, maxeps)
 
         logging.info("Max proxfn error: %.2e" % maxeps)
