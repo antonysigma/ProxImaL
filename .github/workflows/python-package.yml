@@ -12,23 +12,16 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.7, 3.8, 3.9]
+    runs-on: ubuntu-18.04
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
-        sudo apt-get install build-essential
-        python -m pip install --upgrade pip
-        python -m pip install flake8 pytest ninja
-        if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
+        sudo apt-get install build-essential ninja-build python3-pip python3-scipy python3-numpy python3-opencv python3-numexpr
+        python3 -m pip install --upgrade pip
+        python3 -m pip install flake8 pytest ninja
+        if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt; fi
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
@@ -37,5 +30,5 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        python setup.py install
-        python -m pytest proximal/tests
+        python3 setup.py install
+        python3 -m pytest proximal/tests
