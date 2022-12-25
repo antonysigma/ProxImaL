@@ -10,6 +10,7 @@ solver_generator = executable(
     'solver-generator',
     sources: [
         'linearized-admm-gen.cpp',
+        'user-linear-operator.cpp',
     ],
     dependencies: [
         halide_generator_dep,
@@ -24,6 +25,21 @@ if host_machine.system() == 'darwin'
 else
     halide_target = 'host'
     metal_dep = []
+endif
+
+COST_MODEL = 'CUDA'
+if COST_MODEL == 'x86_64'
+
+NPROC = 12
+L2_CACHE_BYTES = 6 * 1024 * 1024
+COMPUTE_CACHE_TRADEOFF = 40
+
+else
+
+NPROC = 128
+L2_CACHE_BYTES = 1024 * 1024
+COMPUTE_CACHE_TRADEOFF = 20
+
 endif
 
 solver_bin = custom_target(
@@ -43,11 +59,15 @@ solver_bin = custom_target(
 
         '-p', 'autoschedule_mullapudi2016',
         'autoscheduler=Mullapudi2016',
-        'autoscheduler.parallelism=4',
+        '-p','autoschedule_mullapudi2016',
+        # Maximum level of CPU core, or GPU threads available
+        'autoscheduler.parallelism=12',
+        # Size of last level (L2) cache
         'autoscheduler.last_level_cache_size=6291000',
+        # Ratio of the cache read cost to compute cost
         'autoscheduler.balance=40',
 
-        'n_iter=1',     # number of ADMM iterations before checking convergence
+        'n_iter=4',     # number of ADMM iterations before checking convergence
         'mu=0.333',     # Problem scaling factor. Defaults to 1 / sqrt( || K || ).
         'lmb=3.0',      # Problem scaling factor. Defaults to sqrt( || K || ).
     ],
@@ -65,9 +85,12 @@ ladmm_runtime_lib = library('ladmm-runtime',
     ],
 )
 
-libpng_dep = dependency('libpng', required: false)
+armadillo_dep = subproject('armadillo-code').get_variable('armadillo_dep')
+highfive_dep = subproject('highfive').get_variable('highfive_dep')
+libpng_dep = dependency('libpng')
 
-if libpng_dep.found()
+usaf_path = '/tank/tmp/2019-12-17T15-42-37.recon.hdf5'
+files(usaf_path)
 
 test_runtime_exe = executable('test-ladmm-runtime',
     sources: [
@@ -75,13 +98,15 @@ test_runtime_exe = executable('test-ladmm-runtime',
         'test.cpp',
     ],
     cpp_args: [
-        '-DRAW_IMAGE_PATH="@0@"'.format(parrot_img),
+        '-DRAW_IMAGE_PATH="@0@"'.format(usaf_path),
 	'-DHALIDE_NO_JPEG',
     ],
     link_with: ladmm_runtime_lib,
     dependencies: [
         halide_runtime_dep,
         dependency('libpng'),
+        armadillo_dep,
+        highfive_dep,
     ],
 )
 
@@ -91,6 +116,5 @@ test('Halide-optimized L-ADMM with Proximal-Codegen',
     suite: 'codegen',
 )
 
-endif
 
 alias_target('ladmm-runtime', ladmm_runtime_lib)

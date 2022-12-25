@@ -29,8 +29,6 @@ Func A_conv(const Func input, const Expr width, const Expr height, const Func K,
     RDom rf(0, filter_width, 0, filter_height);
     img_conv(x, y, c) = sum(img_bounded(x - rf.x + filter_width / 2, y - rf.y + filter_height / 2, c) * K(rf.x, rf.y, c));	
 
-    std::cout << "Finished A_conv setup." << std::endl;
-
     // Apply the boundary condition to the input as required
     //img_bounded.compute_at(img_conv, y);
     
@@ -49,8 +47,6 @@ Func At_conv(Func input, Expr width, Expr height, Func K, Expr filter_width, Exp
     RDom rf(0, filter_width, 0, filter_height);
     img_conv(x, y, c) = sum(img_bounded(x - rf.x + filter_width / 2, y - rf.y + filter_height / 2, c) * K(filter_width - 1 - rf.x, filter_height - 1 - rf.y, c)); 
 
-    std::cout << "Finished At_conv setup." << std::endl;
-
     return img_conv;
 }
 
@@ -60,7 +56,6 @@ Func At_conv(Func input, Expr width, Expr height, Func K, Expr filter_width, Exp
 
 //Mask diagonal weighting matrix
 Func A_M(Func input, Expr width, Expr height, Func mask) {
-
     //Define the mask
     Func input_mask("input_mask");
     input_mask(x, y, c) = mask(x, y, c) * input(x, y, c);
@@ -75,26 +70,10 @@ Func At_M(Func input, Expr width, Expr height, Func mask) {
 
 //Mask application
 Func AtA_M(Func input, Expr width, Expr height, Func mask) {
-
-    int vec_width = 8;
-
 	//Define the mask
     Func input_mask("input_mask");
     input_mask(x, y, c) = mask(x, y, c) * mask(x, y, c) * input(x, y, c);
 
-    std::cout << "Finished AtA_mask setup." << std::endl;
-
-    // Schedule
-    input_mask.reorder(c, y, x);
-    input_mask.vectorize(y, vec_width);
-	input_mask.parallel(x);
-
-	//input_mask.unroll(c,3);
-
-	input_mask.print_loop_nest();
-
-
-    
     return input_mask;
 }
 

@@ -10,6 +10,8 @@ using namespace Halide;
 #include "problem-interface.h"
 #include "prox_operators.h"
 #include "prox_parameterized.h"
+#include "subsample-prox.h"
+#include "user-linear-operator.h"
 
 namespace problem_definition {
 
@@ -31,20 +33,45 @@ struct Transform {
     constexpr static auto height = problem_config::output_height;
     constexpr static auto N = problem_config::psi_size;
 
+    constexpr static auto blur_size = problem_config::blur_size;
+    const RDom blur_window{0, blur_size};
+
     /** Compute dx, dy of a two dimensional image with c number of channels. */
-    FuncTuple<N> forward(const Func& z) {
+    FuncTuple<N> forward(const Func& u, const Func& shifts) {
+        assert(u.dimensions() == 2);
+
+        const Func image_gradient = K_grad_mat(u, width, height);
+
+        const auto blurred = image_formation::boxBlur(u, width, height, blur_window, true, "blurred_x_fwd");
+        Func scaled{"scaled"};
+        scaled(x, y) = blurred(x, y) / (float(blur_size) * blur_size);
+
+        const auto [shifted, _] = image_formation::A_warp(scaled, width, height, 1, shifts);
+
         /* Begin code-generation */
-        return {K_grad_mat(z, width, height), z};
+        return {image_gradient, shifted};
         /* End code-generation */
     }
 
-    Func adjoint(const FuncTuple<N>& u) {
+    Func adjoint(const FuncTuple<N>& z, const Func& shifts) {
+        using problem_config::input_layers;
+
         /* Begin code-generation */
-        const Func z0 = KT_grad_mat(u[0], width, height);
-        const auto& z1 = u[1];
-        Func s;
-        s(x, y, c) = z0(x, y, c) + z1(x, y, c);
-        return s;
+        assert(z[0].dimensions() == 3);
+        const Func image_gradient_inv = KT_grad_mat(z[0], width, height);
+
+        assert(z[1].dimensions() == 3);
+        const auto [shifted, _, __] = image_formation::At_warp(
+            z[1], width, height, 1, shifts, input_layers);
+
+        using problem_config::blur_size;
+        const auto blurred = image_formation::boxBlur(shifted, width, height, blur_window, false, "blurred_x_adj");
+        Func scaled{"scaled"};
+        scaled(x, y) = blurred(x, y) / (float(blur_size) * blur_size * input_layers);
+
+        Func aggregated;
+        aggregated(x, y) = image_gradient_inv(x, y) + scaled(x, y);
+        return aggregated;
         /* End code-generation */
     }
 } K;
@@ -52,7 +79,7 @@ struct Transform {
 /** List of functions in set Omega, after problem splitting by ProxImaL. */
 const ParameterizedProx omega_fn{
     /* Begin code-generation */
-    /* . prox = */ [](const Func& v, const Expr& rho) -> Func { return proxSumsq(v, rho, "vhat"); }
+    /* . prox = */ nullptr
     /* .alpha = 1.0f, */
     /* .beta = 1.0f, */
     /* .gamma = 1.0f, */
@@ -75,28 +102,32 @@ static_assert(Prox<ParameterizedProx>);
  *
  * TODO(Antony): Use C++20 reference designator to initialize fields. This requires Halide >= 14.0.
  */
+
+using problem_config::alpha;
+using problem_config::beta;
+
 const std::array<ParameterizedProx, problem_config::psi_size> psi_fns{
     /* Begin code generation */
-    ParameterizedProx{/* .prox = */ [](const Func& u, const Expr& theta) -> Func {
+    ParameterizedProx{.prox = [](const Func& u, const Expr& theta) -> Func {
                           using problem_config::output_width;
                           using problem_config::output_height;
 
                           return proxIsoL1(u, output_width, output_height, theta);
                       },
-                      /* .alpha = */ 0.1f,
-                      /* .beta = */ 1.0f,
-                      /* .gamma = */ 0.0f,
-                      /* ._c = */ 0.0f,
-                      /* .d = */ 0.0f,
-                      /*.n_dim = */ 4},
+                      .alpha = alpha * beta,
+                      .beta = 1.0f,
+                      .gamma = alpha * (1.0f - beta), 
+                      ._c = 0.0f,
+                      .d = 0.0f,
+                      .n_dim = 3},
     ParameterizedProx{
-        /* .prox = */ [](const Func& u, const Expr&) -> Func { return proxNonneg<3>(u); }
-        /* .alpha = 1.0f, */
-        /* .beta = 1.0f, */
-        /* .gamma = 0.0f, */
-        /* ._c = 0.0f, */
-        /* .d = 0.0f, */
-        /* .n_dim = 3 */
+        .prox_direct = [](const Func& u, const Expr& rho, const Func& b) -> Func {
+            assert(u.dimensions() == 3);
+            assert(b.dimensions() == 3);
+            return prox::proxSubampleSumsq<problem_config::upsample>(u, rho, b);
+        },
+        .n_dim = 3,
+        .need_b = true
     }
     /* End code-generation */
 };

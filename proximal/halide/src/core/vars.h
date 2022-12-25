@@ -6,6 +6,6 @@
 
 namespace {
 
-Var x("x"), y("y"), c("c"), i("i"), j("j"), k("k"), l("l"), g("g"), xo, xi;
+Var x("x"), y("y"), c("c"), i("i"), j("j"), k("k"), l("l"), g("g"), xo{"x_o"}, xi{"x_i"};
 
 } // namespace

@@ -22,8 +22,8 @@ shrink_L1(Func v, Expr theta) {
 // L1 isotropic
 Expr
 shrink_L1_iso(Func v, Expr theta) {
-    Expr norm = sqrt(v(x, y, c, 0) * v(x, y, c, 0) + v(x, y, c, 1) * v(x, y, c, 1));
-    return max(0.f, 1.f - theta / norm) * v(x, y, c, k);
+    Expr norm = sqrt(v(x, y, 0) * v(x, y, 0) + v(x, y, 1) * v(x, y, 1));
+    return max(0.f, 1.f - theta / norm) * v(x, y, k);
 }
 
 // proxL1
@@ -31,7 +31,7 @@ Func
 proxIsoL1(Func input, Expr width, Expr height, Expr theta) {
     // Compute magnitude
     Func pInput("pInput");
-    pInput(x, y, c, k) = shrink_L1_iso(input, theta);
+    pInput(x, y, k) = shrink_L1_iso(input, theta);
 
     return pInput;
 }
@@ -50,10 +50,17 @@ proxL1(Func input, Expr width, Expr height, Expr theta) {
 // Norm-2 squared, aka sum of squares.
 ////////////////////////////////////////////////////////////////////////////////
 
+template<int n_dim>
 Func
 proxSumsq(const Func& input, const Expr theta, const std::string&& name = "xhat") {
     Func output{name};
-    output(x, y, c) = input(x, y, c) * theta / (theta + 2);
+    static_assert(n_dim >= 3);
+
+    if constexpr (n_dim == 4) {
+        output(x, y, c, g) = input(x, y, c, g) * theta / (theta + 2);
+    } else { // n_dim == 3
+        output(x, y, c) = input(x, y, c) * theta / (theta + 2);
+    }
 
     return output;
 }

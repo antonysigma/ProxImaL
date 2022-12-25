@@ -30,12 +30,12 @@ template <typename T, size_t N>
 concept LinOpGraphImpl = requires(T a, const Halide::Func& f, const FuncTuple<N>& ft) {
     // forward function expects a Halide::Func as a data plane / data cube, and
     // returns a tuple of data planes.
-    { a.forward(f) }
+    { a.forward(f, f) }
     -> std::same_as<FuncTuple<N>>;
 
     // adjoint function expects an array of Halide::Func, and returns
     // one single Func.
-    { a.adjoint(ft) }
+    { a.adjoint(ft, f) }
     -> std::same_as<Halide::Func>;
 };
 

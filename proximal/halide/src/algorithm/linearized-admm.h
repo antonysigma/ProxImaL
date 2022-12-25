@@ -18,10 +18,10 @@ normSquared(const Func& v, const RDom& r) {
     Func sumsq{"sumsq"};
     sumsq() = 0.0f;
 
-    if (v.dimensions() == 4) {
-        sumsq() += v(r.x, r.y, r.z, r.w) * v(r.x, r.y, r.z, r.w);
-    } else {  // n_dim == 3
+    if (v.dimensions() == 3) {
         sumsq() += v(r.x, r.y, r.z) * v(r.x, r.y, r.z);
+    } else {  // n_dim == 2
+        sumsq() += v(r.x, r.y) * v(r.x, r.y);
     }
 
     return sumsq;
@@ -29,15 +29,15 @@ normSquared(const Func& v, const RDom& r) {
 
 template <size_t N>
 Func
-normSquared(const FuncTuple<N>& v, const RDom& r) {
+normSquared(const FuncTuple<N>& v, const std::array<RDom, N>& r) {
     Func sumsq{"sumsq"};
     sumsq() = 0.0f;
 
-    for (const auto& _v : v) {
-        if (_v.dimensions() == 4) {
-            sumsq() += _v(r.x, r.y, r.z, r.w) * _v(r.x, r.y, r.z, r.w);
-        } else {  // n_dim == 3
-            sumsq() += _v(r.x, r.y, r.z) * _v(r.x, r.y, r.z);
+    for (const auto& [_v, _r] : zip_view{v, r}) {
+        if (_v.dimensions() == 3) {
+            sumsq() += _v(_r.x, _r.y, _r.z) * _v(_r.x, _r.y, _r.z);
+        } else {  // n_dim == 2
+            sumsq() += _v(_r.x, _r.y) * _v(_r.x, _r.y);
         }
     }
 
@@ -51,20 +51,20 @@ namespace linearized_admm {
 template <size_t N, LinOpGraph G, Prox P, Prox P2>
 std::tuple<Func, FuncTuple<N>, FuncTuple<N>>
 iterate(const Func& v, const FuncTuple<N>& z, const FuncTuple<N>& u, G& K, const P& omega_fn,
-        std::array<P2, N> psi_fns, const Expr& lmb, const Expr& mu, const Func& b) {
+        std::array<P2, N> psi_fns, const Expr& lmb, const Expr& mu, const Func& b, const Func& subpixel_shift) {
     using Vars = std::vector<Var>;
 
     // Update v
     Func v_new{"v_new"};
     {
-        const FuncTuple<N> Kv = K.forward(v);
+        const FuncTuple<N> Kv = K.forward(v, subpixel_shift);
 
         FuncTuple<N> Kvzu;
         ranges::transform(zip_view{Kv, z, u, psi_fns}, Kvzu.begin(), [=](const auto& args) -> Func {
             const auto& [_Kv, _z, _u, prox] = args;
 
             // If z_i is a 4D matrix, make it so. Otherwise, assume a 3D data.
-            const auto vars = (prox.n_dim == 4) ? Vars{x, y, c, k} : Vars{x, y, c};
+            const auto vars = (prox.n_dim == 3) ? Vars{x, y, k} : Vars{x, y};
 
             Func _Kvzu{"Kvzu"};
             _Kvzu(vars) = _Kv(vars) - _z(vars) + _u(vars);
@@ -72,15 +72,19 @@ iterate(const Func& v, const FuncTuple<N>& z, const FuncTuple<N>& u, G& K, const
             return _Kvzu;
         });
 
-        const Func v2 = K.adjoint(Kvzu);
+        const Func v2 = K.adjoint(Kvzu, subpixel_shift);
         Func v3;
-        v3(x, y, c) = v(x, y, c) - (mu / lmb) * v2(x, y, c);
+        v3(x, y) = v(x, y) - (mu / lmb) * v2(x, y);
 
-        v_new = omega_fn(v3, 1.0f / mu, b);
+        if(omega_fn.prox == nullptr) {
+            v_new(x, y) = v3(x, y);
+        } else {
+            v_new = omega_fn(v3, 1.0f / mu, b);
+        }
     }
 
     // Update z_i for i = 0..N .
-    const FuncTuple<N> Kv2 = K.forward(v_new);
+    const FuncTuple<N> Kv2 = K.forward(v_new, subpixel_shift);
     FuncTuple<N> z_new;
     ranges::transform(zip_view{Kv2, u, psi_fns}, z_new.begin(), [=](const auto& args) -> Func {
         // We resort to the ranges::transform() syntax because MacOS+clang14
@@ -88,19 +92,28 @@ iterate(const Func& v, const FuncTuple<N>& z, const FuncTuple<N>& u, G& K, const
         // `auto&& [...]`. Instead, the compiler makes a copy of z_new, so we
         // were unable to update the z value in the iteration.
         const auto& [_Kv2, _u, prox] = args;
-        const auto vars = (prox.n_dim == 4) ? Vars{x, y, c, k} : Vars{x, y, c};
+        const auto vars = (prox.n_dim == 3) ? Vars{x, y, k} : Vars{x, y};
 
         Func Kv_u{"Kv_u"};
         Kv_u(vars) = _Kv2(vars) + _u(vars);
 
-        return prox(Kv_u, 1.0f / lmb);
+        const std::optional<Func> b_ = prox.need_b ? std::optional<Func>(b) : std::nullopt;
+
+        Func z_new{"z_new"};
+        if (prox.prox != nullptr) {
+            z_new = prox(Kv_u, 1.0f / lmb, b_);
+        } else {
+            z_new = prox.prox_direct(Kv_u, 1.0f / lmb, b);
+        }
+
+        return z_new;
     });
 
     // Update u.
     FuncTuple<N> u_new;
     ranges::transform(zip_view{u, Kv2, z_new, psi_fns}, u_new.begin(), [=](const auto& args) -> Func {
         const auto& [_u, _Kv, _z, prox] = args;
-        const auto vars = (prox.n_dim == 4) ? Vars{x, y, c, k} : Vars{x, y, c};
+        const auto vars = (prox.n_dim == 3) ? Vars{x, y, k} : Vars{x, y};
 
         Func _u_new{"u_new"};
         _u_new(vars) = _u(vars) + _Kv(vars) - _z(vars);
@@ -114,20 +127,22 @@ iterate(const Func& v, const FuncTuple<N>& z, const FuncTuple<N>& u, G& K, const
 template <size_t N, LinOpGraph G>
 std::tuple<Expr, Expr, Expr, Expr>
 computeConvergence(const Func& v, const FuncTuple<N>& z, const FuncTuple<N>& u,
-                   const FuncTuple<N>& z_prev, G& K, const float lmb, const uint32_t input_size,
-                   const RDom& input_dimensions, const uint32_t output_size,
+                   const FuncTuple<N>& z_prev, G& K,
+                   const Func& subpixel_shift,
+                   const float lmb, const uint32_t input_size,
+                   const std::array<RDom, N>& all_dimensions, const uint32_t output_size,
                    const RDom& output_dimensions, const float eps_abs = 1e-3f,
                    const float eps_rel = 1e-3f) {
     using Vars = std::vector<Var>;
 
-    const FuncTuple<N> Kv = K.forward(v);
-    const Func KTu = K.adjoint(u);
+    const FuncTuple<N> Kv = K.forward(v, subpixel_shift);
+    const Func KTu = K.adjoint(u, subpixel_shift);
 
     // Compute primal residual
     FuncTuple<N> r;
     ranges::transform(zip_view{Kv, z}, r.begin(), [](const auto& args) -> Func {
         const auto& [_Kv, _z] = args;
-        const auto vars = (_z.dimensions() == 4) ? Vars{x, y, c, k} : Vars{x, y, c};
+        const auto vars = (_z.dimensions() == 3) ? Vars{x, y, k} : Vars{x, y};
 
         Func _r{"r"};
         _r(vars) = _Kv(vars) - _z(vars);
@@ -137,7 +152,7 @@ computeConvergence(const Func& v, const FuncTuple<N>& z, const FuncTuple<N>& u,
     FuncTuple<N> ztmp;
     ranges::transform(zip_view{z, z_prev}, ztmp.begin(), [=](const auto& args) -> Func {
         const auto& [_z, _z_prev] = args;
-        const auto vars = (_z.dimensions() == 4) ? Vars{x, y, c, k} : Vars{x, y, c};
+        const auto vars = (_z.dimensions() == 3) ? Vars{x, y, k} : Vars{x, y, c};
 
         Func _ztmp{"z_diff"};
         _ztmp(vars) = (_z(vars) - _z_prev(vars)) / lmb;
@@ -146,21 +161,21 @@ computeConvergence(const Func& v, const FuncTuple<N>& z, const FuncTuple<N>& u,
     });
 
     // Compute dual residual
-    const Func s = K.adjoint(ztmp);
+    const Func s = K.adjoint(ztmp, subpixel_shift);
 
     // Compute convergence criteria
     using utils::normSquared;
 
-    const Func Kv_norm = normSquared(Kv, output_dimensions);
-    const Func z_norm = normSquared(z, output_dimensions);
+    const Func Kv_norm = normSquared(Kv, all_dimensions);
+    const Func z_norm = normSquared(z, all_dimensions);
     const Expr eps_pri = eps_rel * sqrt(max(Kv_norm(), z_norm())) + output_size * eps_abs;
 
-    const Func KTu_norm = normSquared(KTu, input_dimensions);
+    const Func KTu_norm = normSquared(KTu, output_dimensions);
     const Expr eps_dual =
         sqrt(KTu_norm()) * eps_rel / (1.0f / lmb) + std::sqrt(float(input_size)) * eps_abs;
 
-    const Func r_norm = normSquared(r, output_dimensions);
-    const Func s_norm = normSquared(s, input_dimensions);
+    const Func r_norm = normSquared(r, all_dimensions);
+    const Func s_norm = normSquared(s, output_dimensions);
     return {sqrt(r_norm()), sqrt(s_norm()), eps_pri, eps_dual};
 }
 }  // namespace linearized_admm

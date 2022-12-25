@@ -24,13 +24,16 @@ using namespace Halide;
  */
 struct ParameterizedProx {
     using ProxFn = Func (*)(const Func&, const Expr&);
+    using ProxFnDirect = Func (*)(const Func&, const Expr&, const Func&);
     const ProxFn prox;
+    const ProxFnDirect prox_direct = nullptr;
     const float alpha = 1.0f;
     const float beta = 1.0f;
     const float gamma = 0.0f;
     const float _c = 0.0f;
     const float d = 0.0f;
     const size_t n_dim = 3;
+    const bool need_b = false;
 
     /** Forward transform.
      *
@@ -42,7 +45,7 @@ struct ParameterizedProx {
         const Expr rho_hat = (rho + gamma * 2) / (alpha * beta * beta);
 
         using Vars = std::vector<Var>;
-        const Vars vars = (n_dim == 4) ? Vars{x, y, c, k} : Vars{x, y, c};
+        const Vars vars = (n_dim == 3) ? Vars{x, y, k} : Vars{x, y};
 
         Func v_hat;
         if (_b) {
@@ -60,7 +63,7 @@ struct ParameterizedProx {
      */
     Func backward(const Func& u_hat, const std::optional<Func>& _b = std::nullopt) const {
         using Vars = std::vector<Var>;
-        const Vars vars = (n_dim == 4) ? Vars{x, y, c, k} : Vars{x, y, c};
+        const Vars vars = (n_dim == 3) ? Vars{x, y, k} : Vars{x, y};
 
         Func u;
         if (_b) {

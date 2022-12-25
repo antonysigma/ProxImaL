@@ -41,7 +41,7 @@ class warp_trans_gen : public Generator<warp_trans_gen> {
             return;
         }
         const auto vec_width = natural_vector_size<float>();
-        output.vectorize(y, 8);
+        output.vectorize(y, vec_width);
 
         output.split(x, xo, x, 32).parallel(xo);
     }

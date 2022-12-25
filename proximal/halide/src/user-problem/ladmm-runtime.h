@@ -28,8 +28,7 @@ struct signals_t {
  *
  * Reference: https://stackoverflow.com/a/33472074
  */
-signals_t ladmmSolver(Buffer<const float>& input, const size_t iter_max = 100,
-                      const float eps_abs = 1e-3, const float eps_rel = 1e-3);
+signals_t ladmmSolver(Buffer<const float>& input, float shift_step, const size_t iter_max = 100);
 }  // namespace runtime
 
 }  // namespace proximal

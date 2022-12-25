@@ -12,31 +12,35 @@ namespace runtime {
 
 constexpr auto W = problem_config::input_width;
 constexpr auto H = problem_config::input_height;
+constexpr auto M = problem_config::input_layers;
+
+constexpr auto W2 = problem_config::output_width;
+constexpr auto H2 = problem_config::output_height;
 
 signals_t
-ladmmSolver(Buffer<const float>& input, const size_t iter_max, const float eps_abs,
-            const float eps_rel) {
-    Buffer<float> v(W, H, 1);
-    Buffer<float> z0(W, H, 1, 2);
-    Buffer<float> z1(W, H, 1);
-    Buffer<float> u0(W, H, 1, 2);
-    Buffer<float> u1(W, H, 1);
+ladmmSolver(Buffer<const float>& input, float shift_step, const size_t iter_max) {
+    Buffer<float> v(W2, H2);
+    Buffer<float> z0(W2, H2, 2);
+    Buffer<float> u0(W2, H2, 2);
+
+    Buffer<float> z1(W2, H2, M);
+    Buffer<float> u1(W2, H2, M);
 
     // Set zeros
     for (auto* buf : {&v, &z0, &z1, &u0, &u1}) {
         buf->fill(0.0f);
+        buf->set_host_dirty();
     }
 
-    for(auto* p : {&v, &z0, &z1, &u0, &u1}) {
-        p->set_host_dirty();
-    }
+    input.set_host_dirty();
 
-    Buffer<float> z0_new(W, H, 1, 2);
-    Buffer<float> z1_new(W, H, 1);
-    Buffer<float> u0_new(W, H, 1, 2);
-    Buffer<float> u1_new(W, H, 1);
+    Buffer<float> z0_new(W2, H2, 2);
+    Buffer<float> u0_new(W2, H2, 2);
 
-    Buffer<float> v_new(W, H, 1);
+    Buffer<float> z1_new(W2, H2, M);
+    Buffer<float> u1_new(W2, H2, M);
+
+    Buffer<float> v_new(W2, H2);
 
     std::vector<float> r(iter_max);
     std::vector<float> s(iter_max);
@@ -49,7 +53,7 @@ ladmmSolver(Buffer<const float>& input, const size_t iter_max, const float eps_a
         auto _eps_pri = Buffer<float>::make_scalar(eps_pri.data() + i);
         auto _eps_dual = Buffer<float>::make_scalar(eps_dual.data() + i);
 
-        const auto error = ladmm_iter(input, v, z0, z1, u0, u1, v_new, z0_new, z1_new, u0_new,
+        const auto error = ladmm_iter(input, shift_step, v, z0, z1, u0, u1, v_new, z0_new, z1_new, u0_new,
                                       u1_new, _r, _s, _eps_pri, _eps_dual);
 
         if (error) {
@@ -57,10 +61,11 @@ ladmmSolver(Buffer<const float>& input, const size_t iter_max, const float eps_a
         }
 
         // Terminate the algorithm early, if optimal solution is reached.
-        for(auto* p : {&_r, &_s, &_eps_pri, &_eps_dual}) {
-            p->copy_to_host();
-        }
-
+        _r.copy_to_host();
+        _s.copy_to_host();
+        _eps_pri.copy_to_host();
+        _eps_dual.copy_to_host();
+        
         const bool converged = (r[i] < eps_pri[i]) && (s[i] < eps_dual[i]);
         if (converged) {
             for (auto* v : {&r, &s, &eps_pri, &eps_dual}) {
@@ -79,9 +84,8 @@ ladmmSolver(Buffer<const float>& input, const size_t iter_max, const float eps_a
         }
     }
 
-    v_new.copy_to_host();
-
     constexpr int success = 0;
+    v_new.copy_to_host();
     return {success, v_new, r, s, eps_pri, eps_dual};
 }
 
