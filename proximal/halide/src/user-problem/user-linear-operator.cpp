@@ -75,7 +75,7 @@ At_warp(const Func& input, const Expr width, const Expr height, const Expr upsam
 
     // Repeatable boundary
     Func clamped{"clampedInput"};
-    clamped(x, y, k) = BoundaryConditions::constant_exterior(input, 0.0f, {{0, width}, {0, height}, {0, n_shifts}})(x, y, k);
+    clamped(x, y, k) = BoundaryConditions::constant_exterior(input, 0.0f, {{0, width}, {0, height}})(x, y, k);
 
     // Given the destination coordinate in the high-resolution frame, find the
     // corresponding coordinate in the low-resolution frame.
