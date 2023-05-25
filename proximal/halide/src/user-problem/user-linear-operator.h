@@ -18,7 +18,7 @@ using namespace Halide;
  * @return transformed image slices, and the clamped input
  */
 std::pair<Func, Func>
-A_warp(const Func& input, const Expr width, const Expr height, const Expr upsample,
+A_warp(const Func& input, const Expr width, const Expr height,
        const Func& shift);
 
 /** Applies an Affine transformation to an image. The function At_warp
@@ -33,7 +33,7 @@ A_warp(const Func& input, const Expr width, const Expr height, const Expr upsamp
  * @return fused image, transformed image slices, and the clamped input.
  */
 std::tuple<Func, Func, Func>
-At_warp(const Func& input, const Expr width, const Expr height, const Expr upsample,
+At_warp(const Func& input, const Expr width, const Expr height,
        const Func& shift, const Expr n_shifts);
 
 /** 2D convolution with repeated edge condition.

@@ -32,9 +32,13 @@ struct Transform {
     constexpr static auto width = problem_config::output_width;
     constexpr static auto height = problem_config::output_height;
     constexpr static auto N = problem_config::psi_size;
-
+    constexpr static auto upsample = problem_config::upsample;
     constexpr static auto blur_size = problem_config::blur_size;
-    const RDom blur_window{0, blur_size};
+    constexpr static auto half_width = (blur_size - 1) / 2;
+    static_assert(blur_size % 2 == 1, "Box kernel size must be an odd number");
+
+    const RDom blur_window{-half_width, blur_size, "blur_window"};
+
 
     /** Compute dx, dy of a two dimensional image with c number of channels. */
     FuncTuple<N> forward(const Func& u, const Func& shifts) {
@@ -46,7 +50,7 @@ struct Transform {
         Func scaled{"scaled"};
         scaled(x, y) = blurred(x, y) / (float(blur_size) * blur_size);
 
-        const auto [shifted, _] = image_formation::A_warp(scaled, width, height, 1, shifts);
+        const auto [shifted, _] = image_formation::A_warp(scaled, width, height, shifts);
 
         /* Begin code-generation */
         return {image_gradient, shifted};
@@ -62,7 +66,7 @@ struct Transform {
 
         assert(z[1].dimensions() == 3);
         const auto [shifted, _, __] = image_formation::At_warp(
-            z[1], width, height, 1, shifts, input_layers);
+            z[1], width, height, shifts, input_layers);
 
         using problem_config::blur_size;
         const auto blurred = image_formation::boxBlur(shifted, width, height, blur_window, false, "blurred_x_adj");
