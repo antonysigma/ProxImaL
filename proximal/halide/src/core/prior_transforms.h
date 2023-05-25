@@ -30,10 +30,10 @@ Func K_grad_mat(const Func input, const Expr width, const Expr height) {
 
     Func dx("dx");
     Func dy("dy");
-    dx(x, y) = inBounded(x + 1, y) - inBounded(x, y);
-    dy(x, y) =  inBounded(x, y + 1) - inBounded(x, y);
-	
-	Kx(x, y, k) = select(k == 0, dy(x, y), dx(x, y));
+    dx(x, y, _) = inBounded(x + 1, y, _) - inBounded(x, y, _);
+    dy(x, y, _) = inBounded(x, y + 1, _) - inBounded(x, y, _);
+
+    Kx(x, y, _, k) = select(k == 0, dy(x, y, _), dx(x, y, _));
 
     return Kx;
 }
@@ -51,16 +51,16 @@ Func KT_grad_mat(const Func input, const Expr width, const Expr height) {
     Func inBounded("inBounded");
     inBounded = mirror_image(input, {{0, width}, {0, height}});
 
-    KTy(x, y) =
-        select(y == 0, inBounded(x, 0, 0), y == height - 1, -inBounded(x, height - 2, 0),
-               inBounded(x, y, 0) - inBounded(x, y - 1, 0));
+    KTy(x, y, _) =
+        select(y == 0, inBounded(x, 0, _, 0), y == height - 1, -inBounded(x, height - 2, _, 0),
+               inBounded(x, y, _, 0) - inBounded(x, y - 1, _, 0));
 
-    KTx(x, y) =
-        select(x == 0, inBounded(0, y, 1), x == width - 1, -inBounded(width - 2, y, 1),
-               inBounded(x, y, 1) - inBounded(x - 1, y, 1));
-	
+    KTx(x, y, _) =
+        select(x == 0, inBounded(0, y, _, 1), x == width - 1, -inBounded(width - 2, y, _, 1),
+               inBounded(x, y, _, 1) - inBounded(x - 1, y, _, 1));
+
     //Final result is sum of all matrix-vector products
-    KT(x, y) = -KTx(x, y) - KTy(x, y);
+    KT(x, y, _) = -KTx(x, y, _) - KTy(x, y, _);
 
     return KT;
 }

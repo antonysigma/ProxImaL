@@ -22,8 +22,8 @@ shrink_L1(Func v, Expr theta) {
 // L1 isotropic
 Expr
 shrink_L1_iso(Func v, Expr theta) {
-    Expr norm = sqrt(v(x, y, 0) * v(x, y, 0) + v(x, y, 1) * v(x, y, 1));
-    return max(0.f, 1.f - theta / norm) * v(x, y, k);
+    Expr norm = sqrt(v(x, y, _, 0) * v(x, y, _, 0) + v(x, y, _, 1) * v(x, y, _, 1));
+    return max(0.f, 1.f - theta / norm) * v(x, y, _, k);
 }
 
 // proxL1
@@ -31,8 +31,8 @@ Func
 proxIsoL1(Func input, Expr width, Expr height, Expr theta) {
     // Compute magnitude
     Func pInput("pInput");
-    pInput(x, y, k) = shrink_L1_iso(input, theta);
 
+    pInput(x, y, _, k) = shrink_L1_iso(input, theta);
     return pInput;
 }
 

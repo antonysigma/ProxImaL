@@ -20,7 +20,7 @@ public:
         Expr height = input.height();
 
         // Prox L1 function
-        output(x, y, c) = proxIsoL1(input, width, height, theta)(x, y, c);
+        output(x, y, c, k) = proxIsoL1(input, width, height, theta)(x, y, c, k);
     }
 
     void schedule() {
