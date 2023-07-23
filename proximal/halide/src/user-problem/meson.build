@@ -31,19 +31,16 @@ solver_bin = custom_target(
         '-o', meson.current_build_dir(),
         '-g', 'ladmm_iter',
         '-e', 'static_library,h,stmt_html',
-        'target=host',
+        'target=host-cuda-cuda_capability_75',
 
-        '-p', 'autoschedule_mullapudi2016',
-        'autoscheduler=Mullapudi2016',
-        'autoscheduler.parallelism=4',
-        'autoscheduler.last_level_cache_size=6291000',
-        'autoscheduler.balance=40',
+        '-p', 'autoschedule_anderson2021',
+        'autoscheduler=Anderson2021',
+        'autoscheduler.parallelism=32',
 
         'n_iter=1',     # number of ADMM iterations before checking convergence
         'mu=0.333',     # Problem scaling factor. Defaults to 1 / sqrt( || K || ).
         'lmb=3.0',      # Problem scaling factor. Defaults to sqrt( || K || ).
     ],
-    build_by_default: true,
 )
 
 ladmm_runtime_lib = library('ladmm-runtime',
