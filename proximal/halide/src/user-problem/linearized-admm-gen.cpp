@@ -79,11 +79,14 @@ class LinearizedADMMIter : public Generator<LinearizedADMMIter> {
         const RDom input_dimensions{0, input_width, 0, input_height, 0, 1};
         const RDom output_dimensions{0, output_width, 0, output_height, 0, 1, 0, 2};
 
+        const FuncTuple<psi_size> u_init{u0, u1};
+        const FuncTuple<psi_size> z_init{z0, z1};
+
         for (size_t i = 0; i < n_iter; i++) {
             const FuncTuple<psi_size>& z_prev =
-                (i == 0) ? FuncTuple<psi_size>{z0, z1} : z_list[i - 1];
+                (i == 0) ? z_init : z_list[i - 1];
             const FuncTuple<psi_size>& u_prev =
-                (i == 0) ? FuncTuple<psi_size>{u0, u1} : u_list[i - 1];
+                (i == 0) ? u_init : u_list[i - 1];
 
             // std::tie() didn't work; need explicit copy or Halide expression.
             // Unhandled exception: Internal Error at
@@ -108,7 +111,7 @@ class LinearizedADMMIter : public Generator<LinearizedADMMIter> {
 
         }
 
-        const auto& z_prev = (n_iter > 1) ? *(z_list.rbegin() + 1) : FuncTuple<psi_size>{z0, z1};
+        const auto& z_prev = (n_iter > 1) ? z_list[n_iter - 2] : z_init;
         const auto [_r, _s, _eps_pri, _eps_dual] = algorithm::linearized_admm::computeConvergence(
             v_list.back(), z_list.back(), u_list.back(), z_prev, K, lmb, input_size,
             input_dimensions, output_size,
