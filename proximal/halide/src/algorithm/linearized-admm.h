@@ -108,7 +108,7 @@ iterate(const Func& v, const FuncTuple<N>& z, const FuncTuple<N>& u, G& K, const
         return _u_new;
     });
 
-    return {v_new, z_new, u_new};
+    return {std::move(v_new), std::move(z_new), std::move(u_new)};
 }
 
 template <size_t N, LinOpGraph G>
