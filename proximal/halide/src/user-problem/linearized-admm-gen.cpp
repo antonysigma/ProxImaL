@@ -119,8 +119,11 @@ class LinearizedADMMIter : public Generator<LinearizedADMMIter> {
 
         // Export data
         v_new = v_list.back();
-        std::tie(z0_new, z1_new) = std::make_pair(z_list.back()[0], z_list.back()[1]);
-        std::tie(u0_new, u1_new) = std::make_pair(u_list.back()[0], u_list.back()[1]);
+        z0_new = z_list.back()[0];
+        z1_new = z_list.back()[1];
+        u0_new = u_list.back()[0];
+        u1_new = u_list.back()[1];
+
         r() = 0.0f;
         s() = 0.0f;
         eps_pri() = 0.0f;
