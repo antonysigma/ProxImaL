@@ -43,6 +43,8 @@ solver_bin = custom_target(
     ],
 )
 
+alias_target('debug-codegen', solver_bin)
+
 ladmm_runtime_lib = library('ladmm-runtime',
     sources: [
         'ladmm-runtime.cpp',
