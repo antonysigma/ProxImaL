@@ -5,7 +5,7 @@ name: Compile Halide C++ on Windows/Linux
 
 on:
   push:
-    branches: [ master ]
+    branches: [ resume-windows-ci ]
   pull_request:
     types: [edited, submitted]
 
@@ -15,7 +15,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest]
         # TODO(Antony): add Python 3.9 to test the Meson build system support
         python-version: [3.8]
 
@@ -33,9 +33,9 @@ jobs:
       if: startsWith(matrix.os, 'ubuntu') == true
 
     - name: Install MSVC toolchain
-      uses: bus1/cabuild/action/msdevshell@v1
+      uses: ilammy/msvc-dev-cmd@v1.4.1
       with:
-        architecture: x64
+        arch: amd64
       if: startsWith(matrix.os, 'windows') == true
 
     - name: Install Python dependencies
@@ -54,13 +54,9 @@ jobs:
     
     - name: Build ProxImaL-codegen
       run: ninja -C proximal/halide/build ladmm-runtime
-      # TODO(Antony): Resolve "missing DLLs" in Windows Docker environment.
-      if: startsWith(matrix.os, 'window') == false
 
     - name: Build Python interfaces
       run: ninja -C proximal/halide/build python_interface
-      if: startsWith(matrix.os, 'window') == false
 
     - name: Run test suite
       run: ninja -C proximal/halide/build test
-      if: startsWith(matrix.os, 'window') == false

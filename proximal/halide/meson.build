@@ -138,6 +138,9 @@ endif
 
 proximal_python_interface = []
 
+#cxx = meson.get_compiler('cpp')
+#mullapudi2016_lib = cxx.find_library('autoschedule_mullapudi2016', dirs: halide_library_path)
+
 foreach p : pipeline_name
     if not p.has_key('function_name')
         p += {'function_name': p['name']}

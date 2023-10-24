@@ -6,11 +6,12 @@ cc = meson.get_compiler('cpp', native: true)
 halide_inc = include_directories('include')
 
 if build_machine.system() == 'windows'
-    halide_library_path = meson.current_source_dir() / 'lib/Release'
+    halide_library_path = meson.current_source_dir() / 'lib' / 'Release'
 else
     halide_library_path = meson.current_source_dir() / 'lib'
 endif
 halide_lib = cc.find_library('Halide', dirs: halide_library_path)
+mullapudi2016_lib = cc.find_library('autoschedule_mullapudi2016', dirs: halide_library_path)
 
 halide_generator_dep = declare_dependency(
     sources: [
