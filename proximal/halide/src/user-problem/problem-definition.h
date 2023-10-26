@@ -73,7 +73,7 @@ struct Transform {
         Func scaled{"scaled"};
         scaled(x, y) = blurred(x, y) / (float(blur_size) * blur_size * input_layers);
 
-        Func aggregated;
+        Func aggregated{"aggregated"};
         aggregated(x, y) = image_gradient_inv(x, y) + scaled(x, y);
         return aggregated;
         /* End code-generation */
