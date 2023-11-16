@@ -42,7 +42,7 @@ struct Transform {
         /* Begin code-generation */
         const Func z0 = KT_grad_mat(u[0], width, height);
         const auto& z1 = u[1];
-        Func s;
+        Func s{"s"};
         s(x, y, c) = z0(x, y, c) + z1(x, y, c);
         return s;
         /* End code-generation */

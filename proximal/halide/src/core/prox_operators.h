@@ -65,7 +65,7 @@ proxSumsq(const Func& input, const Expr theta, const std::string&& name = "xhat"
 template <size_t n_dim>
 Func
 proxNonneg(const Func& input) {
-    Func output;
+    Func output{"prox_nonneg"};
 
     static_assert(n_dim >= 3);
 

@@ -83,39 +83,28 @@ class LinearizedADMMIter : public Generator<LinearizedADMMIter> {
         const FuncTuple<psi_size> z_init{z0, z1};
 
         for (size_t i = 0; i < n_iter; i++) {
+            const Func& v_prev =
+                (i == 0) ? v : v_list[i - 1];
             const FuncTuple<psi_size>& z_prev =
                 (i == 0) ? z_init : z_list[i - 1];
             const FuncTuple<psi_size>& u_prev =
                 (i == 0) ? u_init : u_list[i - 1];
-
+            
             // std::tie() didn't work; need explicit copy or Halide expression.
             // Unhandled exception: Internal Error at
             // /home/halidenightly/build_bot/worker/halide-nightly-main-llvm16-x86-64-linux-cmake/halide-source/src/autoschedulers/anderson2021/LoopNest.cpp:2497
             // triggered by user code at : Condition failed: producer_store_instances > 0:
 
-            const auto [_v_new, z_new, u_new]
+            std::tie(v_list[i], z_list[i], u_list[i])
              = algorithm::linearized_admm::iterate(
-                v, z_prev, u_prev, K, omega_fn, psi_fns, lmb, mu, input);
-
-            using Halide::_;
-            // Why copy? Not move?
-            v_list[i](x, y, c, _) = _v_new(x, y, c, _);
-
-            std::copy(u_new.begin(), u_new.end(), u_list[i].begin());
-
-            std::transform(z_new.begin(), z_new.end(), z_list[i].begin(), [](const auto& _z) -> Func{
-                Func _z_new;
-                _z_new(x, y, c, _) = _z(x, y, c, _);
-                return _z_new;
-            });
-
+                v_prev, z_prev, u_prev, K, omega_fn, psi_fns, lmb, mu, input);
         }
 
-        const auto& z_prev = (n_iter > 1) ? z_list[n_iter - 2] : z_init;
-        const auto [_r, _s, _eps_pri, _eps_dual] = algorithm::linearized_admm::computeConvergence(
-            v_list.back(), z_list.back(), u_list.back(), z_prev, K, lmb, input_size,
-            input_dimensions, output_size,
-            output_dimensions);
+        //const auto& z_prev = (n_iter > 1) ? z_list[n_iter - 2] : z_init;
+        //const auto [_r, _s, _eps_pri, _eps_dual] = algorithm::linearized_admm::computeConvergence(
+        //    v_list.back(), z_list.back(), u_list.back(), z_prev, K, lmb, input_size,
+        //    input_dimensions, output_size,
+        //    output_dimensions);
 
         // Export data
         v_new = v_list.back();
