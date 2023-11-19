@@ -16,12 +16,12 @@ namespace utils {
 Func
 normSquared(const Func& v, const RDom& r) {
     Func sumsq{"sumsq"};
-    sumsq() = 0.0f;
+    sumsq(x) = 0.0f;
 
     if (v.dimensions() == 3) {
-        sumsq() += v(r.x, r.y, r.z) * v(r.x, r.y, r.z);
+        sumsq(x) += v(r.x, r.y, r.z) * v(r.x, r.y, r.z);
     } else {  // n_dim == 2
-        sumsq() += v(r.x, r.y) * v(r.x, r.y);
+        sumsq(x) += v(r.x, r.y) * v(r.x, r.y);
     }
 
     return sumsq;
@@ -31,13 +31,13 @@ template <size_t N>
 Func
 normSquared(const FuncTuple<N>& v, const std::array<RDom, N>& r) {
     Func sumsq{"sumsq"};
-    sumsq() = 0.0f;
+    sumsq(x) = 0.0f;
 
     for (const auto& [_v, _r] : zip_view{v, r}) {
         if (_v.dimensions() == 3) {
-            sumsq() += _v(_r.x, _r.y, _r.z) * _v(_r.x, _r.y, _r.z);
+            sumsq(x) += _v(_r.x, _r.y, _r.z) * _v(_r.x, _r.y, _r.z);
         } else {  // n_dim == 2
-            sumsq() += _v(_r.x, _r.y) * _v(_r.x, _r.y);
+            sumsq(x) += _v(_r.x, _r.y) * _v(_r.x, _r.y);
         }
     }
 
@@ -168,15 +168,15 @@ computeConvergence(const Func& v, const FuncTuple<N>& z, const FuncTuple<N>& u,
 
     const Func Kv_norm = normSquared(Kv, all_dimensions);
     const Func z_norm = normSquared(z, all_dimensions);
-    const Expr eps_pri = eps_rel * sqrt(max(Kv_norm(), z_norm())) + output_size * eps_abs;
+    const Expr eps_pri = eps_rel * sqrt(max(Kv_norm(0), z_norm(0))) + output_size * eps_abs;
 
     const Func KTu_norm = normSquared(KTu, output_dimensions);
     const Expr eps_dual =
-        sqrt(KTu_norm()) * eps_rel / (1.0f / lmb) + std::sqrt(float(input_size)) * eps_abs;
+        sqrt(KTu_norm(0)) * eps_rel / (1.0f / lmb) + std::sqrt(float(input_size)) * eps_abs;
 
     const Func r_norm = normSquared(r, all_dimensions);
     const Func s_norm = normSquared(s, output_dimensions);
-    return {sqrt(r_norm()), sqrt(s_norm()), eps_pri, eps_dual};
+    return {sqrt(r_norm(0)), sqrt(s_norm(0)), eps_pri, eps_dual};
 }
 }  // namespace linearized_admm
 }  // namespace algorithm

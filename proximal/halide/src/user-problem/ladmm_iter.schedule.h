@@ -425,20 +425,13 @@ inline void apply_schedule_ladmm_iter(
             .tile(rx, ry, rxo, ryo, rxi, ryi, 32, 32);
 
         auto intm = p.update(k)  //
-                        .rfactor({{rxo, u}, {ryo, v}})
-                        .compute_root()
-                        .gpu_blocks(v)
-                        .gpu_threads(u);
+                        .rfactor({{rxo, u}, {ryo, v}});
 
-        intm.update()
-            .gpu_blocks(v)
-            .gpu_threads(u)
-            .atomic();
+        intm.compute_at(intm.in(), x);
+        intm.in().compute_at(p.in(), Var::outermost()).gpu_blocks(v).gpu_threads(u);
 
         p.update(k)  //
-            .atomic()
-            .gpu_blocks(ryo)
-            .gpu_threads(rxo);
+            .fuse(rxo, ryo, ryo);
     };
 
     const auto parallelizeScalarReduction3D = [&](Func& p, int k) {
@@ -450,36 +443,36 @@ inline void apply_schedule_ladmm_iter(
             .tile({rx, ry, rz}, {rxo, ryo, rzo}, {rxi, ryi, rzi}, {16, 16, 8});
 
         auto intm = p.update(k)  //
-                        .rfactor({{rxo, u}, {ryo, v}, {rzo, w}})
-                        .compute_root()
-                        .gpu_blocks(w)
-                        .gpu_blocks(v)
-                        .gpu_threads(u);
+                        .rfactor({{rxo, u}, {ryo, v}, {rzo, w}});
 
-        intm.update()
+        intm.compute_at(intm.in(), x);
+        intm.in()  //
+            .compute_at(p.in(), Var::outermost())
             .gpu_blocks(w)
             .gpu_blocks(v)
-            .gpu_threads(u)
-            .atomic();
+            .gpu_threads(u);
 
         p.update(k)  //
-            .atomic()
-            .gpu_blocks(rzo)
-            .gpu_blocks(ryo)
-            .gpu_threads(rxo);
+            .fuse(rxo, ryo, ryo)
+            .fuse(ryo, rzo, rzo);
     };
 
     for (auto* p : {&sumsq, &sumsq_1, &sumsq_3}) {
-        p->compute_root().gpu_single_thread();
+        p->compute_at(p->in(), x).store_in(MemoryType::Register);
+        p->in().compute_root().gpu_single_thread();
 
         parallelizeScalarReduction3D(*p, 0);
         parallelizeScalarReduction3D(*p, 1);
     }
     for (auto* p : {&sumsq_2, &sumsq_4}) {
-        p->compute_root().gpu_single_thread();
+        p->compute_at(p->in(), x).store_in(MemoryType::Register);
 
         parallelizeScalarReduction2D(*p, 0);
     }
+
+    sumsq_2.in().compute_at(eps_dual, Var::outermost()).gpu_single_thread();
+    sumsq_4.in().compute_at(s, Var::outermost()).gpu_single_thread();
+
     {
         Var x = u_new.args()[0];
         Var y = u_new.args()[1];
