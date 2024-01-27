@@ -25,6 +25,7 @@ pipeline_src = [
     'src/A_mask.cpp',
     'src/A_warp.cpp',
     'src/At_warp.cpp',
+    'src/loco-compression.cpp',
 ]
 
 if get_option('build_nlm')
@@ -104,6 +105,10 @@ pipeline_name = [{
     }, {
         'name': 'warpImgT',
         'interfaces': ['At_warp'],
+        'autoschedule': false,
+    }, {
+        'name': 'loco',
+        'interfaces': [],
         'autoschedule': false,
 }]
 
