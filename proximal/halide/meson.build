@@ -26,6 +26,7 @@ pipeline_src = [
     'src/A_warp.cpp',
     'src/At_warp.cpp',
     'src/loco-compression.cpp',
+    'src/masked_interpolation.cpp',
 ]
 
 if get_option('build_nlm')
@@ -108,6 +109,10 @@ pipeline_name = [{
         'autoschedule': false,
     }, {
         'name': 'loco',
+        'interfaces': [],
+        'autoschedule': true,
+    }, {
+        'name': 'masked_interp',
         'interfaces': [],
         'autoschedule': false,
 }]
