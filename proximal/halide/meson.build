@@ -146,6 +146,7 @@ else
     statlib_file_ext = 'a'
 endif
 
+halide_pipelines = {}
 proximal_python_interface = []
 
 foreach p : pipeline_name
@@ -204,6 +205,8 @@ foreach p : pipeline_name
         ],
     )
 
+    halide_pipelines += {p['function_name']: obj}
+
     if not p.has_key('link_with')
         p += {'link_with': []}
     endif
@@ -236,5 +239,17 @@ subdir('src/test_data')
 subdir('src/core')
 subdir('src/algorithm')
 subdir('src/user-problem')
+
+test_masked_interp = executable('test-interp',
+    sources: [
+        'tests/test_masked_interp.cpp',
+        halide_pipelines['masked_interp'],
+    ],
+    dependencies: [
+        halide_runtime_dep,
+        dependency('libpng'),
+        subproject('armadillo-code').get_variable('armadillo_dep'),
+    ],
+)
 
 alias_target('python_interface', proximal_python_interface)

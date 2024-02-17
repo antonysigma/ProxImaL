@@ -18,7 +18,7 @@ public:
     Input<Buffer<uint16_t, 2>> input{"input"};
     Output<Buffer<uint16_t, 2>> output{"output"};
 
-    GeneratorParam<int> downsample_level{"downsample_level", 2, 1, 8};
+    GeneratorParam<int> downsample_level{"downsample_level", 5, 1, 8};
 
     Func do_downscale(const Func& in) const {
         Func ds{"downscaled"};
@@ -35,6 +35,8 @@ public:
 
         const Expr weighted_sum = sum2by2(x * 2, y * 2)[0];
         const Expr pixel_count = sum2by2(x * 2, y * 2)[1];
+
+        // Bug: don't paint over zero valued pixels.
         ds(x, y) = select(pixel_count > 0, weighted_sum / pixel_count, INVALID);
 
         return ds;
@@ -55,14 +57,16 @@ public:
         const auto height = input.height();
         
         input_clamped = BoundaryConditions::repeat_edge(input, {{0, width}, {0, height}});
+        Func input_f32{"input_f32"};
+        input_f32(x, y) = cast<float>(input_clamped(x, y));
 
-        downscaled.emplace_back(do_downscale(input_clamped));
+        downscaled.emplace_back(input_f32);
 
-        for(int i = 0; i < downsample_level; i++) {
+        for(int i = 0; i < downsample_level + 1; i++) {
             downscaled.emplace_back(do_downscale(downscaled[i]));
         }
 
-        for(int i = 0; i < downsample_level; i++) {
+        for(int i = 0; i < downsample_level + 1; i++) {
             const Func& current_level = *(downscaled.rbegin() + i);
             const Func& next_level = *(downscaled.rbegin() + i + 1);
 
@@ -74,15 +78,15 @@ public:
     }
 
     void schedule() {
-        input.dim(0).set_bounds(0, 512).set_stride(1);
-        input.dim(1).set_bounds(0, 512).set_stride(512);
+        input.dim(0).set_bounds(0, 128).set_stride(1);
+        input.dim(1).set_bounds(0, 128).set_stride(128);
 
-        output.dim(0).set_bounds(0, 512).set_stride(1);
-        output.dim(1).set_bounds(0, 512).set_stride(512);
+        output.dim(0).set_bounds(0, 128).set_stride(1);
+        output.dim(1).set_bounds(0, 128).set_stride(128);
 
         if (using_autoscheduler()) {
-            input.set_estimates({{0, 512}, {0, 512}});
-            output.set_estimates({{0, 512}, {0, 512}});
+            input.set_estimates({{0, 128}, {0, 128}});
+            output.set_estimates({{0, 128}, {0, 128}});
             return;
         }
 
